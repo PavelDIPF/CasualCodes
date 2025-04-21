@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ввести код - Casual Codes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        .code-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .code-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ввести код раздачи</h1>
+        
+        <div>
+            <input type="text" id="codeInput" class="code-input" placeholder="Введите код">
+            <button id="checkCodeBtn" class="btn">Проверить код</button>
+        </div>
+        
+        <div id="codeInfo" class="code-info hidden">
+            <h3>Информация о коде:</h3>
+            <p><strong>Вещь:</strong> <span id="itemName"></span></p>
+            <p><strong>Категория:</strong> <span id="itemCategory"></span></p>
+            <p><strong>Создатель:</strong> <span id="creator"></span></p>
+            <p><strong>Использований:</strong> <span id="uses"></span></p>
+        </div>
+        
+        <div id="result" class="result hidden"></div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const codeInput = document.getElementById('codeInput');
+            const checkCodeBtn = document.getElementById('checkCodeBtn');
+            const resultDiv = document.getElementById('result');
+            const codeInfoDiv = document.getElementById('codeInfo');
+            
+            // Для демонстрации - в реальном приложении нужно получить user_id из Telegram WebApp
+            const user_id = Math.floor(Math.random() * 1000000);
+            
+            // Проверка кода при нажатии кнопки
+            checkCodeBtn.addEventListener('click', function() {
+                const code = codeInput.value.trim();
+                
+                if (!code) {
+                    showResult('Пожалуйста, введите код', 'error');
+                    return;
+                }
+                
+                // Сначала получаем информацию о коде
+                fetch(`/api/code_info?code=${encodeURIComponent(code)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            showCodeInfo(false);
+                            showResult(data.error, 'error');
+                        } else {
+                            // Показываем информацию о коде
+                            document.getElementById('itemName').textContent = data.item_name;
+                            document.getElementById('itemCategory').textContent = data.item_category || 'не указана';
+                            document.getElementById('creator').textContent = data.creator_username ? `@${data.creator_username}` : 'не указан';
+                            document.getElementById('uses').textContent = data.uses;
+                            showCodeInfo(true);
+                            
+                            // Затем проверяем доступность кода для пользователя
+                            return fetch('/api/check_code', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    code: code,
+                                    user_id: user_id
+                                })
+                            });
+                        }
+                    })
+                    .then(response => {
+                        if (!response) return;
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data && data.status) {
+                            if (data.status === 'success') {
+                                showResult(`${data.message}<br>Категория: ${data.category}<br>Свяжитесь с @${data.creator_username} чтобы получить приз`, 'success');
+                            } else {
+                                showResult(data.message, 'error');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showResult('Произошла ошибка при проверке кода', 'error');
+                    });
+            });
+            
+            function showResult(message, type) {
+                resultDiv.innerHTML = message;
+                resultDiv.className = `result ${type}`;
+                resultDiv.classList.remove('hidden');
+            }
+            
+            function showCodeInfo(show) {
+                if (show) {
+                    codeInfoDiv.classList.remove('hidden');
+                } else {
+                    codeInfoDiv.classList.add('hidden');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
